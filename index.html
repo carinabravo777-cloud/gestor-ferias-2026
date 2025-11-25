@@ -40,7 +40,6 @@
     .stat-card .number { font-size: 32px; font-weight: bold; margin-bottom: 5px; }
     .stat-card .label { font-size: 14px; opacity: 0.9; }
     .operators-summary { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 25px; }
-    .operators-summary h3 { margin-bottom: 15px; color: #495057; }
     .operator-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
     .operator-card { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
     .operator-card .name { font-weight: 600; color: #495057; margin-bottom: 8px; }
@@ -247,13 +246,13 @@
         return e;
       });
       showNotification('Escala carregada com sucesso!','success');
-      renderTable(); // atualizar coluna após importação
+      renderTable();
     }
 
     // Normalização
     function normalizeTurnoKey(k){
       let s = String(k).trim().replace(/\s+/g,'');
-      // Manhã
+      // Manhã (inclui sobreposição)
       if (s === '7h-15h' || s === '07h-15h' || s.startsWith('7h-15h') || s.startsWith('07h-15h')) {
         s = '07h-15h';
       }
@@ -296,11 +295,27 @@
       return escalaReal.find(r => r.dia === display);
     }
 
-    // Obter turno do dia por operador
+    // Obter turno do dia por operador (inclui sobreposição da manhã)
     function getTurnoDoDiaPorOperador(dateISO, operatorId){
       const reg = findEscalaByISO(dateISO);
       if (!reg || !reg.turnos) return null;
-      for (const [rawKey, val] of Object.entries(reg.turnos)){
+
+      const t = reg.turnos;
+
+      // Verificar explicitamente variantes da manhã
+      const manhaKeys = ['07h-15h', '7h-15h_sobreposicao', '07h-15h_', '7h-15h'];
+      for (const key of manhaKeys){
+        if (key in t){
+          const val = t[key];
+          const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
+          if (idMatch === operatorId){
+            return '07h-15h';
+          }
+        }
+      }
+
+      // Restantes
+      for (const [rawKey, val] of Object.entries(t)){
         const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
         if (idMatch === operatorId){
           return normalizeTurnoKey(rawKey);
@@ -343,7 +358,7 @@
       return parts.length ? parts.join(' | ') : '—';
     }
 
-    // Validação cobertura mínima
+    // Validação cobertura mínima (ignora ausências)
     function validaCoberturaMinima(startDate, endDate){
       const s = new Date(startDate), e = new Date(endDate);
       for (let d = new Date(s); d <= e; d.setDate(d.getDate()+1)){
@@ -364,11 +379,24 @@
       return { ok:true };
     }
 
-    // Conflitos
-    function detectConflicts(){
-      return vacations.map((v,i)=>{
+    // Ordenação por período crescente
+    function sortVacationsAsc(vacs){
+      return [...vacs].sort((a,b)=>{
+        const as = new Date(a.startDate).getTime();
+        const bs = new Date(b.startDate).getTime();
+        if (as !== bs) return as - bs;
+        const ae = new Date(a.endDate).getTime();
+        const be = new Date(b.endDate).getTime();
+        if (ae !== be) return ae - be;
+        return a.name.localeCompare(b.name, 'pt');
+      });
+    }
+
+    // Conflitos (aplicado sobre a lista ordenada)
+    function detectConflictsOrdered(ordered){
+      return ordered.map((v,i)=>{
         let hasConflict=false, conflictsWith=[];
-        vacations.forEach((o,j)=>{
+        ordered.forEach((o,j)=>{
           if (i!==j && checkOverlap(v.startDate, v.endDate, o.startDate, o.endDate)){
             hasConflict=true; conflictsWith.push(o.name);
           }
@@ -407,7 +435,11 @@
 
     function renderTable(){
       const tbody = document.getElementById('tableBody');
-      const vcs = detectConflicts();
+
+      // Ordenar por período crescente
+      const ordered = sortVacationsAsc(vacations);
+      const vcs = detectConflictsOrdered(ordered);
+
       if (vcs.length===0){
         tbody.innerHTML = `
           <tr><td colspan="10" class="empty-state">
@@ -449,12 +481,34 @@
     }
 
     function deleteVacation(index){
+      // Nota: como a lista está ordenada para renderização, index refere-se à posição em 'ordered'.
+      // Para remover corretamente do array base, vamos localizar pelo timestamp único (start/end/name).
+      const ordered = sortVacationsAsc(vacations);
+      const vToRemove = ordered[index];
+      const baseIndex = vacations.findIndex(v =>
+        v.startDate===vToRemove.startDate &&
+        v.endDate===vToRemove.endDate &&
+        v.id===vToRemove.id &&
+        v.name===vToRemove.name
+      );
+      if (baseIndex === -1) return;
+
       if (!confirm('Tem certeza que deseja remover este pedido de férias?')) return;
-      const v = vacations[index]; operators[v.id].usedDays -= v.realDays;
-      vacations.splice(index,1); renderTable(); showNotification('Pedido removido com sucesso!','success');
+      const v = vacations[baseIndex];
+      operators[v.id].usedDays -= v.realDays;
+      vacations.splice(baseIndex,1);
+      renderTable();
+      showNotification('Pedido removido com sucesso!','success');
     }
+
     function approveVacation(index){
-      const req = vacations[index];
+      const ordered = sortVacationsAsc(vacations);
+      const req = ordered[index];
+      const baseIndex = vacations.findIndex(v =>
+        v.startDate===req.startDate && v.endDate===req.endDate && v.id===req.id && v.name===req.name
+      );
+      if (baseIndex === -1) return;
+
       if (escalaReal && escalaReal.length>0){
         const cobertura = validaCoberturaMinima(req.startDate, req.endDate);
         if (!cobertura.ok){
@@ -462,11 +516,23 @@
           return;
         }
       }
-      vacations[index].status='Aprovado'; renderTable(); showNotification('Pedido aprovado com sucesso!','success');
+      vacations[baseIndex].status='Aprovado';
+      renderTable();
+      showNotification('Pedido aprovado com sucesso!','success');
     }
+
     function rejectVacation(index){
+      const ordered = sortVacationsAsc(vacations);
+      const req = ordered[index];
+      const baseIndex = vacations.findIndex(v =>
+        v.startDate===req.startDate && v.endDate===req.endDate && v.id===req.id && v.name===req.name
+      );
+      if (baseIndex === -1) return;
+
       if (!confirm('Tem certeza que deseja rejeitar este pedido de férias?')) return;
-      vacations[index].status='Rejeitado'; renderTable(); showNotification('Pedido rejeitado.','warning');
+      vacations[baseIndex].status='Rejeitado';
+      renderTable();
+      showNotification('Pedido rejeitado.','warning');
     }
 
     document.getElementById('vacationForm').addEventListener('submit', function(e){
