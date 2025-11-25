@@ -302,9 +302,9 @@
 
       const t = reg.turnos;
 
-      // Verificar explicitamente variantes da manhã
-      const manhaKeys = ['07h-15h', '7h-15h_sobreposicao', '07h-15h_', '7h-15h'];
-      for (const key of manhaKeys){
+      // Verificar explicitamente variantes da manhã sem depender da normalização
+      const manhaCandidates = ['07h-15h', '7h-15h_sobreposicao', '07h-15h_', '7h-15h'];
+      for (const key of manhaCandidates){
         if (key in t){
           const val = t[key];
           const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
@@ -351,6 +351,7 @@
         if (lower.startsWith('folga')) turno = 'Folga';
         else if (lower.startsWith('férias') || lower.startsWith('ferias')) turno = 'Férias';
         else if (lower.startsWith('formação') || lower.startsWith('formacao')) turno = 'Formação';
+        else if (turno === '7h-15h' || turno === '07h-15h') turno = '07h-15h';
         else if (!['23h-07h','07h-15h','15h-23h'].includes(turno)) turno = 'Outro';
         counts[turno] = (counts[turno] || 0) + 1;
       }
@@ -481,8 +482,7 @@
     }
 
     function deleteVacation(index){
-      // Nota: como a lista está ordenada para renderização, index refere-se à posição em 'ordered'.
-      // Para remover corretamente do array base, vamos localizar pelo timestamp único (start/end/name).
+      // Mapear índice da lista ordenada para o array original
       const ordered = sortVacationsAsc(vacations);
       const vToRemove = ordered[index];
       const baseIndex = vacations.findIndex(v =>
