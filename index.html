@@ -243,7 +243,7 @@
     let escalaReal = []; // array de objetos com {dia, ano, mes, dia_semana, feriado, turnos:{...}}
     const turnosMinimos = { "23h-07h": 1, "15h-23h": 1, "07h-15h": 2 };
 
-    // Feriados 2026 (ajusta conforme necessário)
+    // Feriados 2026
     const holidays2026 = [
       '2026-01-01', '2026-02-17', '2026-04-03', '2026-04-05', '2026-05-01',
       '2026-06-04', '2026-06-10', '2026-08-15', '2026-10-05', '2026-11-01',
@@ -314,10 +314,16 @@
       // Normaliza entradas: chaves de turno e datas
       escalaReal = arr.map(entry => {
         const e = JSON.parse(JSON.stringify(entry));
-        // Normalizar chaves de turno
+        // Normalizar chaves de turno (inclui '07h-15h_' e '7h-15h_sobreposicao')
         const normTurnos = {};
         Object.entries(e.turnos || {}).forEach(([k,v])=>{
-          const kNorm = k.replace('7h-15h','07h-15h').replace('_sobreposicao','');
+          let kNorm = k;
+          // normalizar manhã
+          if (kNorm === '7h-15h' || kNorm === '07h-15h' || kNorm === '07h-15h_' || kNorm === '7h-15h_sobreposicao') {
+            kNorm = '07h-15h';
+          }
+          // remover sufixos genéricos
+          kNorm = kNorm.replace('_sobreposicao', '').replace(/_$/, '');
           normTurnos[kNorm] = v;
         });
         e.turnos = normTurnos;
@@ -375,7 +381,15 @@
       const reg = findEscalaByISO(dateStr);
       if (!reg) return null;
       for (const [k, val] of Object.entries(reg.turnos)) {
-        if (val === operatorId) return k; // "23h-07h", "07h-15h", "15h-23h", "Folga", "Férias", etc.
+        if (val === operatorId) {
+          // normalizar chave antes de devolver
+          let kNorm = k;
+          if (kNorm === '7h-15h' || kNorm === '07h-15h' || kNorm === '07h-15h_' || kNorm === '7h-15h_sobreposicao') {
+            kNorm = '07h-15h';
+          }
+          kNorm = kNorm.replace('_sobreposicao', '').replace(/_$/, '');
+          return kNorm;
+        }
       }
       return null;
     }
@@ -402,8 +416,12 @@
         const ds = d.toISOString().split('T')[0];
         let turno = getTurnoDoDiaPorOperador(ds, operatorId);
         if (!turno) continue;
+        // normalizar e categorizar
+        if (turno === '7h-15h' || turno === '07h-15h' || turno === '07h-15h_' || turno === '7h-15h_sobreposicao') {
+          turno = '07h-15h';
+        }
+        turno = turno.replace('_sobreposicao', '').replace(/_$/, '');
         const lower = turno.toLowerCase();
-        if (turno.includes('7h-15h')) turno = '07h-15h';
         if (lower.startsWith('folga')) turno = 'Folga';
         else if (lower.startsWith('férias')) turno = 'Férias';
         else if (lower.startsWith('formação')) turno = 'Formação';
@@ -425,9 +443,14 @@
         const presentes = { "23h-07h": 0, "07h-15h": 0, "15h-23h": 0 };
         Object.entries(reg.turnos).forEach(([turno, opId]) => {
           if (!opId) return;
-          const tnorm = turno.replace('_sobreposicao', '').replace('7h-15h','07h-15h');
-          const lower = turno.toLowerCase();
-          const isAusencia = lower.startsWith('folga') || lower.startsWith('férias') || lower.startsWith('formação');
+          // normalizar chave
+          let tnorm = turno;
+          if (tnorm === '7h-15h' || tnorm === '07h-15h' || tnorm === '07h-15h_' || tnorm === '7h-15h_sobreposicao') {
+            tnorm = '07h-15h';
+          }
+          tnorm = tnorm.replace('_sobreposicao', '').replace(/_$/, '');
+          const lowerRaw = turno.toLowerCase();
+          const isAusencia = lowerRaw.startsWith('folga') || lowerRaw.startsWith('férias') || lowerRaw.startsWith('formação');
           if (tnorm in presentes && !isAusencia) presentes[tnorm]++;
         });
 
