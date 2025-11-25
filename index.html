@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
@@ -16,15 +16,28 @@
       max-width: 1400px; margin: 0 auto; background: white;
       border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); overflow: hidden;
     }
-    .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; text-align: center; }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white; padding: 30px; text-align: center;
+    }
     .header h1 { font-size: 28px; margin-bottom: 10px; }
     .header p { opacity: 0.9; font-size: 14px; }
+    .notice {
+      background: #fff3cd; color: #664d03; padding: 15px; font-size: 13px;
+      border-left: 4px solid #ffc107;
+    }
     .form-section { padding: 30px; background: #f8f9fa; border-bottom: 2px solid #e9ecef; }
-    .form-grid { display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr; gap: 15px; align-items: end; margin-bottom: 15px; }
+    .form-grid {
+      display: grid; grid-template-columns: 2fr 1.5fr 1.5fr 1fr; gap: 15px; align-items: end; margin-bottom: 15px;
+    }
     .form-group { display: flex; flex-direction: column; }
     .form-group label { font-weight: 600; margin-bottom: 8px; color: #495057; font-size: 14px; }
-    .form-group input, .form-group select { padding: 12px; border: 2px solid #dee2e6; border-radius: 8px; font-size: 14px; transition: all 0.3s; }
-    .form-group input:focus, .form-group select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+    .form-group input, .form-group select {
+      padding: 12px; border: 2px solid #dee2e6; border-radius: 8px; font-size: 14px; transition: all 0.3s;
+    }
+    .form-group input:focus, .form-group select:focus {
+      outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
     .info-box { background: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; border-radius: 5px; margin-top: 15px; }
     .info-box h4 { color: #1976D2; margin-bottom: 8px; font-size: 14px; }
     .info-box ul { margin-left: 20px; color: #555; font-size: 13px; }
@@ -38,4 +51,524 @@
     .btn-import:hover { background: #138496; transform: translateY(-2px); }
     .table-section { padding: 30px; }
     .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 25px; }
-    .stat-card { padding: 20px; border
+    .stat-card { padding: 20px; border-radius: 10px; text-align: center; }
+    .stat-card.total { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    .stat-card.ok { background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; }
+    .stat-card.conflict { background: linear-gradient(135deg, #eb3349 0%, #f45c43 100%); color: white; }
+    .stat-card.pending { background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; }
+    .stat-card .number { font-size: 32px; font-weight: bold; margin-bottom: 5px; }
+    .stat-card .label { font-size: 14px; opacity: 0.9; }
+    .operators-summary { background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 25px; }
+    .operators-summary h3 { margin-bottom: 15px; color: #495057; }
+    .operator-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+    .operator-card { background: white; padding: 15px; border-radius: 8px; border-left: 4px solid #667eea; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .operator-card .name { font-weight: 600; color: #495057; margin-bottom: 8px; }
+    .operator-card .days-info { font-size: 13px; color: #6c757d; }
+    .operator-card .days-info span { font-weight: 600; color: #667eea; }
+    .operator-card .remaining { margin-top: 5px; padding: 5px 10px; background: #e7f3ff; border-radius: 5px; font-size: 12px; text-align: center; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; padding: 15px; background: #f8f9fa; border-radius: 8px; }
+    .toolbar h3 { color: #495057; }
+    .toolbar-buttons { display: flex; gap: 10px; }
+    table {
+      width: 100%; border-collapse: collapse; background: white;
+      border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    }
+    thead { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
+    th { padding: 15px; text-align: left; font-weight: 600; font-size: 13px; }
+    td { padding: 15px; border-bottom: 1px solid #e9ecef; font-size: 13px; }
+    tbody tr { transition: all 0.3s; }
+    tbody tr:hover { background: #f8f9fa; }
+    tbody tr.conflict { background: #ffe5e5; }
+    tbody tr.conflict:hover { background: #ffd5d5; }
+    .status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .status.ok { background: #d4edda; color: #155724; }
+    .status.conflict { background: #f8d7da; color: #721c24; }
+    .status.pendente { background: #fff3cd; color: #856404; }
+    .status.aprovado { background: #d4edda; color: #155724; }
+    .btn-delete { background: #dc3545; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; transition: all 0.3s; }
+    .btn-delete:hover { background: #c82333; transform: scale(1.05); }
+    .btn-approve { background: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 5px; transition: all 0.3s; }
+    .btn-approve:hover { background: #218838; transform: scale(1.05); }
+    .calculation-detail { font-size: 11px; color: #6c757d; margin-top: 3px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #6c757d; }
+    .empty-state svg { width: 80px; height: 80px; margin-bottom: 20px; opacity: 0.3; }
+    .notification {
+      position: fixed; top: 20px; right: 20px; padding: 15px 20px;
+      border-radius: 8px; color: white; font-weight: 600; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+      z-index: 1000; animation: slideIn 0.3s ease;
+    }
+    .notification.success { background: #28a745; }
+    .notification.error { background: #dc3545; }
+    .notification.warning { background: #ffc107; color: #333; }
+    @keyframes slideIn {
+      from { transform: translateX(400px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @media (max-width: 768px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .stats { grid-template-columns: 1fr; }
+      .toolbar { flex-direction: column; gap: 15px; }
+      .toolbar-buttons { width: 100%; flex-direction: column; }
+      .toolbar-buttons button { width: 100%; }
+      table { font-size: 11px; }
+      th, td { padding: 8px; }
+    }
+    input[type="file"] { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>📅 Gestor de Férias - Sistema de Escalas 2026</h1>
+      <p>Deteção Automática de Conflitos | Cálculo com Folgas, Feriados e Cobertura por Turno</p>
+    </div>
+
+    <div class="notice">
+      Atenção: A escala apresentada/entregue é exclusivamente orientativa para a marcação de férias e tem caráter provisório. Não deve ser reproduzida, duplicada ou utilizada como referência operacional para o ano de 2026.
+    </div>
+    
+    <div class="form-section">
+      <form id="vacationForm">
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="operatorSelect">Operador</label>
+            <select id="operatorSelect" required>
+              <option value="">Selecione o operador...</option>
+              <option value="1">Elisabete Freixo (ID: 1)</option>
+              <option value="2">Patrícia Dobrões (ID: 2)</option>
+              <option value="3">Carlos Ferreira (ID: 3)</option>
+              <option value="4">Sónia Silvestre (ID: 4)</option>
+              <option value="5">Paula Ferreira (ID: 5)</option>
+              <option value="6">Ricardina Dobrões (ID: 6)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="startDate">Data Início</label>
+            <input type="date" id="startDate" required>
+          </div>
+          <div class="form-group">
+            <label for="endDate">Data Fim</label>
+            <input type="date" id="endDate" required>
+          </div>
+          <div class="form-group">
+            <label style="opacity: 0;">Adicionar</label>
+            <button type="submit" class="btn btn-primary">➕ Adicionar Pedido</button>
+          </div>
+        </div>
+      </form>
+      
+      <div class="info-box">
+        <h4>ℹ️ Regras principais</h4>
+        <ul>
+          <li>Folgas e feriados não contam como dias úteis de férias.</li>
+          <li>Turnos: 23h–07h e 15h–23h exigem 1 operador; 07h–15h exige 2 operadores.</li>
+          <li>Só é permitido 1 operador de férias em simultâneo, salvo substituição explícita validada.</li>
+          <li>Conflitos são detetados quando há sobreposição de períodos entre operadores.</li>
+        </ul>
+      </div>
+    </div>
+    
+    <div class="table-section">
+      <div class="stats">
+        <div class="stat-card total">
+          <div class="number" id="totalCount">0</div>
+          <div class="label">Total de Pedidos</div>
+        </div>
+        <div class="stat-card pending">
+          <div class="number" id="pendingCount">0</div>
+          <div class="label">Pendentes</div>
+        </div>
+        <div class="stat-card ok">
+          <div class="number" id="okCount">0</div>
+          <div class="label">Sem Conflitos</div>
+        </div>
+        <div class="stat-card conflict">
+          <div class="number" id="conflictCount">0</div>
+          <div class="label">Com Conflitos</div>
+        </div>
+      </div>
+      
+      <div class="operators-summary">
+        <h3>👥 Resumo por Operador</h3>
+        <div class="operator-cards" id="operatorCards"></div>
+      </div>
+      
+      <div class="toolbar">
+        <h3>📋 Pedidos de Férias</h3>
+        <div class="toolbar-buttons">
+          <button class="btn btn-export" onclick="exportData()">📥 Exportar Pedidos</button>
+          <button class="btn btn-import" onclick="document.getElementById('importFile').click()">📤 Importar Pedidos</button>
+          <input type="file" id="importFile" accept=".json" onchange="importData(event)">
+          
+          <button class="btn btn-import" onclick="document.getElementById('importEscalaFile').click()">📤 Importar Escala</button>
+          <input type="file" id="importEscalaFile" accept=".json" onchange="importEscalaFromFile(event)">
+        </div>
+      </div>
+      
+      <table id="vacationTable">
+        <thead>
+          <tr>
+            <th>Operador</th>
+            <th>ID</th>
+            <th>Período</th>
+            <th>Dias Corridos</th>
+            <th>Folgas</th>
+            <th>Feriados</th>
+            <th>Dias Férias Reais</th>
+            <th>Estado</th>
+            <th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+  
+  <script>
+    // Dados dos operadores
+    const operators = {
+      1: { name: 'Elisabete Freixo', totalDays: 22, usedDays: 0 },
+      2: { name: 'Patrícia Dobrões', totalDays: 22, usedDays: 12 },
+      3: { name: 'Carlos Ferreira', totalDays: 22, usedDays: 19 },
+      4: { name: 'Sónia Silvestre', totalDays: 22, usedDays: 0 },
+      5: { name: 'Paula Ferreira', totalDays: 22, usedDays: 0 },
+      6: { name: 'Ricardina Dobrões', totalDays: 27, usedDays: 0 }
+    };
+
+    // Escala real (carregada via JSON)
+    let escalaReal = []; // array de objetos com {dia, ano, mes, dia_semana, feriado, turnos:{...}}
+    const turnosMinimos = { "23h-07h": 1, "15h-23h": 1, "07h-15h": 2 };
+
+    // Feriados 2026 (ajusta conforme necessário)
+    const holidays2026 = [
+      '2026-01-01', '2026-02-17', '2026-04-03', '2026-04-05', '2026-05-01',
+      '2026-06-04', '2026-06-10', '2026-08-15', '2026-10-05', '2026-11-01',
+      '2026-12-01', '2026-12-08', '2026-12-25'
+    ];
+    
+    // Pedidos de férias (localStorage ou inicial)
+    let vacations = JSON.parse(localStorage.getItem('vacations')) || [];
+
+    function saveData() {
+      localStorage.setItem('vacations', JSON.stringify(vacations));
+      localStorage.setItem('operators', JSON.stringify(operators));
+    }
+    function loadData() {
+      const savedOperators = localStorage.getItem('operators');
+      if (savedOperators) Object.assign(operators, JSON.parse(savedOperators));
+    }
+
+    // Exportar pedidos
+    function exportData() {
+      const data = { vacations, operators, exportDate: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `ferias-${new Date().toISOString().split('T')[0]}.json`; a.click();
+      showNotification('Dados exportados com sucesso!', 'success');
+    }
+
+    // Importar pedidos
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          vacations = data.vacations || [];
+          Object.assign(operators, data.operators || {});
+          saveData();
+          renderTable();
+          showNotification('Pedidos importados com sucesso!', 'success');
+        } catch (error) {
+          showNotification('Erro ao importar dados!', 'error');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Importar Escala
+    function importEscalaFromFile(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          importEscalaReal(data);
+        } catch (err) {
+          showNotification('Erro ao importar a escala!', 'error');
+        }
+      };
+      reader.readAsText(file);
+    }
+    function importEscalaReal(jsonObj) {
+      escalaReal = jsonObj;
+      showNotification('Escala carregada com sucesso!', 'success');
+    }
+
+    // Notificações
+    function showNotification(message, type = 'success') {
+      const notification = document.createElement('div');
+      notification.className = `notification ${type}`;
+      notification.textContent = message;
+      document.body.appendChild(notification);
+      setTimeout(() => notification.remove(), 3000);
+    }
+
+    // Helpers
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('pt-PT', { day: '2-digit', month: '2-digit', year: 'numeric' });
+    }
+    function calculateDays(start, end) {
+      const startDate = new Date(start), endDate = new Date(end);
+      const diffTime = Math.abs(endDate - startDate);
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    }
+    function countHolidaysInPeriod(startDate, endDate) {
+      let count = 0;
+      const start = new Date(startDate), end = new Date(endDate);
+      holidays2026.forEach(holiday => {
+        const hd = new Date(holiday);
+        if (hd >= start && hd <= end) count++;
+      });
+      return count;
+    }
+    function checkOverlap(start1, end1, start2, end2) {
+      return start1 <= end2 && end1 >= start2;
+    }
+
+    // Escala: obter turno do dia por operador com base no JSON carregado
+    function getTurnoDoDiaPorOperador(dateStr, operatorId) {
+      // dateStr: 'YYYY-MM-DD'
+      const [ano, mes, dia] = dateStr.split('-').map(n => parseInt(n, 10));
+      const reg = escalaReal.find(r =>
+        r.ano === ano && r.mes === mes &&
+        r.dia === `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`
+      );
+      if (!reg) return null;
+      for (const [k, val] of Object.entries(reg.turnos)) {
+        if (val === operatorId) return k; // "23h-07h", "07h-15h", "15h-23h", "Folga", "Férias", etc.
+      }
+      return null;
+    }
+
+    // Contar folgas reais
+    function countFolgasReais(operatorId, startDate, endDate) {
+      let count = 0;
+      const start = new Date(startDate), end = new Date(endDate);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const ds = d.toISOString().split('T')[0];
+        const turno = getTurnoDoDiaPorOperador(ds, operatorId);
+        if (!turno) continue;
+        if (turno.toLowerCase().startsWith('folga')) count++;
+      }
+      return count;
+    }
+
+    // Validação da cobertura mínima por turno no período
+    function validaCoberturaMinima(startDate, endDate) {
+      const start = new Date(startDate), end = new Date(endDate);
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const ds = d.toISOString().split('T')[0];
+        const [ano, mes, dia] = ds.split('-').map(n => parseInt(n, 10));
+        const reg = escalaReal.find(r =>
+          r.ano === ano && r.mes === mes &&
+          r.dia === `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`
+        );
+        if (!reg) continue;
+
+        // Presenças por turno (exclui Folga/Férias/Formação)
+        const presentes = { "23h-07h": 0, "07h-15h": 0, "15h-23h": 0 };
+        Object.entries(reg.turnos).forEach(([turno, opId]) => {
+          if (!opId) return;
+          const tnorm = turno.replace('_sobreposicao', '');
+          const lower = turno.toLowerCase();
+          const isAusencia = lower.startsWith('folga') || lower.startsWith('férias') || lower.startsWith('formação');
+          if (tnorm in presentes && !isAusencia) presentes[tnorm]++;
+        });
+
+        for (const t of Object.keys(turnosMinimos)) {
+          if (presentes[t] < turnosMinimos[t]) {
+            return { ok: false, dia: reg.dia, turno: t, presentes: presentes[t], minimo: turnosMinimos[t] };
+          }
+        }
+      }
+      return { ok: true };
+    }
+
+    // Detetar conflitos entre pedidos
+    function detectConflicts() {
+      return vacations.map((vacation, index) => {
+        let hasConflict = false, conflictsWith = [];
+        vacations.forEach((other, otherIndex) => {
+          if (index !== otherIndex) {
+            if (checkOverlap(vacation.startDate, vacation.endDate, other.startDate, other.endDate)) {
+              hasConflict = true; conflictsWith.push(other.name);
+            }
+          }
+        });
+        return { ...vacation, hasConflict, conflictsWith };
+      });
+    }
+
+    function updateOperatorCards() {
+      const cards = document.getElementById('operatorCards');
+      let html = '';
+      Object.keys(operators).forEach(id => {
+        const op = operators[id];
+        const remaining = op.totalDays - op.usedDays;
+        const percentage = op.totalDays ? Math.round(op.usedDays / op.totalDays * 100) : 0;
+        html += `
+          <div class="operator-card">
+            <div class="name">${op.name}</div>
+            <div class="days-info">
+              Total: <span>${op.totalDays} dias</span><br>
+              Marcados: <span>${op.usedDays} dias</span>
+            </div>
+            <div class="remaining">
+              Restantes: <strong>${remaining} dias</strong> (${percentage}% usado)
+            </div>
+          </div>
+        `;
+      });
+      cards.innerHTML = html;
+    }
+
+    function updateStats(vacationsWithConflicts) {
+      const total = vacationsWithConflicts.length;
+      const conflicts = vacationsWithConflicts.filter(v => v.hasConflict).length;
+      const pending = vacationsWithConflicts.filter(v => v.status === 'Pendente').length;
+      const ok = vacationsWithConflicts.filter(v => !v.hasConflict && v.status === 'Aprovado').length;
+      document.getElementById('totalCount').textContent = total;
+      document.getElementById('pendingCount').textContent = pending;
+      document.getElementById('okCount').textContent = ok;
+      document.getElementById('conflictCount').textContent = conflicts;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('tableBody');
+      const vacationsWithConflicts = detectConflicts();
+
+      if (vacationsWithConflicts.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="9" class="empty-state">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h3>Nenhum pedido de férias registado</h3>
+              <p>Adicione o primeiro pedido usando o formulário acima</p>
+            </td>
+          </tr>
+        `;
+      } else {
+        tbody.innerHTML = vacationsWithConflicts.map((vacation, index) => {
+          const totalDays = calculateDays(vacation.startDate, vacation.endDate);
+          const statusClass = vacation.hasConflict ? 'conflict' : vacation.status.toLowerCase();
+          const statusIcon = vacation.hasConflict ? '⚠️' : (vacation.status === 'Pendente' ? '⏳' : '✓');
+          const statusText = vacation.hasConflict 
+            ? `CONFLITO com ${vacation.conflictsWith.join(', ')}`
+            : vacation.status;
+
+          return `
+            <tr class="${vacation.hasConflict ? 'conflict' : ''}">
+              <td><strong>${vacation.name}</strong></td>
+              <td>${vacation.id}</td>
+              <td>${formatDate(vacation.startDate)} a ${formatDate(vacation.endDate)}</td>
+              <td>${totalDays} dias</td>
+              <td>${vacation.daysOff} dias</td>
+              <td>${vacation.holidays} dia(s)</td>
+              <td>
+                <strong>${vacation.realDays} dias</strong>
+                <div class="calculation-detail">
+                  ${totalDays} - ${vacation.daysOff} folgas - ${vacation.holidays} feriado(s)
+                </div>
+              </td>
+              <td><span class="status ${statusClass}">${statusIcon} ${statusText}</span></td>
+              <td>
+                ${vacation.status === 'Pendente' ? `<button class="btn-approve" onclick="approveVacation(${index})">✓ Aprovar</button>` : ''}
+                <button class="btn-delete" onclick="deleteVacation(${index})">🗑️ Remover</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+      updateStats(vacationsWithConflicts);
+      updateOperatorCards();
+      saveData();
+    }
+
+    function deleteVacation(index) {
+      if (!confirm('Tem certeza que deseja remover este pedido de férias?')) return;
+      const vacation = vacations[index];
+      operators[vacation.id].usedDays -= vacation.realDays;
+      vacations.splice(index, 1);
+      renderTable();
+      showNotification('Pedido removido com sucesso!', 'success');
+    }
+
+    function approveVacation(index) {
+      const req = vacations[index];
+      // Validação de cobertura mínima se houver escala real
+      if (escalaReal && escalaReal.length > 0) {
+        const cobertura = validaCoberturaMinima(req.startDate, req.endDate);
+        if (!cobertura.ok) {
+          showNotification(`Sem cobertura mínima em ${cobertura.dia} no turno ${cobertura.turno}. Presentes: ${cobertura.presentes}/${cobertura.minimo}`, 'error');
+          return;
+        }
+      }
+      vacations[index].status = 'Aprovado';
+      renderTable();
+      showNotification('Pedido aprovado com sucesso!', 'success');
+    }
+
+    document.getElementById('vacationForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const operatorId = parseInt(document.getElementById('operatorSelect').value);
+      const startDate = document.getElementById('startDate').value;
+      const endDate = document.getElementById('endDate').value;
+
+      if (!operatorId) { showNotification('Selecione um operador.', 'error'); return; }
+      if (new Date(startDate) > new Date(endDate)) {
+        showNotification('A data de início não pode ser posterior à data de fim!', 'error'); return;
+      }
+
+      // Calcular dias
+      const totalDays = calculateDays(startDate, endDate);
+      const daysOff = (escalaReal && escalaReal.length > 0)
+        ? countFolgasReais(operatorId, startDate, endDate)
+        : 0; // sem escala real, não contamos folgas automaticamente
+      const holidays = countHolidaysInPeriod(startDate, endDate);
+      const realDays = totalDays - daysOff - holidays;
+
+      // Verificar saldo
+      const operator = operators[operatorId];
+      const remaining = operator.totalDays - operator.usedDays;
+      if (realDays > remaining) {
+        showNotification(`${operator.name} não tem dias suficientes! Necessários: ${realDays} | Disponíveis: ${remaining}`, 'error');
+        return;
+      }
+
+      // Adicionar pedido
+      vacations.push({
+        id: operatorId, name: operator.name, startDate, endDate,
+        daysOff, holidays, realDays, status: 'Pendente'
+      });
+      operator.usedDays += realDays;
+      renderTable();
+      showNotification('Pedido adicionado com sucesso!', 'success');
+
+      this.reset();
+      document.getElementById('operatorSelect').focus();
+    });
+
+    // Inicialização
+    loadData();
+    renderTable();
+  </script>
+</body>
+</html>
+
