@@ -1,4 +1,4 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
@@ -85,10 +85,13 @@
     .status.conflict { background: #f8d7da; color: #721c24; }
     .status.pendente { background: #fff3cd; color: #856404; }
     .status.aprovado { background: #d4edda; color: #155724; }
+    .status.rejeitado { background: #e2e3e5; color: #383d41; }
     .btn-delete { background: #dc3545; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; transition: all 0.3s; }
     .btn-delete:hover { background: #c82333; transform: scale(1.05); }
     .btn-approve { background: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 5px; transition: all 0.3s; }
     .btn-approve:hover { background: #218838; transform: scale(1.05); }
+    .btn-reject { background: #6c757d; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 5px; transition: all 0.3s; }
+    .btn-reject:hover { background: #5a6268; transform: scale(1.05); }
     .calculation-detail { font-size: 11px; color: #6c757d; margin-top: 3px; }
     .empty-state { text-align: center; padding: 60px 20px; color: #6c757d; }
     .empty-state svg { width: 80px; height: 80px; margin-bottom: 20px; opacity: 0.3; }
@@ -211,6 +214,7 @@
             <th>Operador</th>
             <th>ID</th>
             <th>Período</th>
+            <th>Turnos no período</th>
             <th>Dias Corridos</th>
             <th>Folgas</th>
             <th>Feriados</th>
@@ -304,7 +308,26 @@
       reader.readAsText(file);
     }
     function importEscalaReal(jsonObj) {
-      escalaReal = jsonObj;
+      // Aceita array direto ou objeto com atributo 'escala'
+      const arr = Array.isArray(jsonObj) ? jsonObj : (Array.isArray(jsonObj.escala) ? jsonObj.escala : []);
+      if (!arr.length){ showNotification('Ficheiro de escala vazio ou formato inválido.', 'error'); return; }
+      // Normaliza entradas: chaves de turno e datas
+      escalaReal = arr.map(entry => {
+        const e = JSON.parse(JSON.stringify(entry));
+        // Normalizar chaves de turno
+        const normTurnos = {};
+        Object.entries(e.turnos || {}).forEach(([k,v])=>{
+          const kNorm = k.replace('7h-15h','07h-15h').replace('_sobreposicao','');
+          normTurnos[kNorm] = v;
+        });
+        e.turnos = normTurnos;
+        // Normalizar dia para "DD/MM/YYYY"
+        if (typeof e.dia === 'string' && e.dia.includes('-')) {
+          const [y,m,d] = e.dia.split('-');
+          e.dia = `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
+        }
+        return e;
+      });
       showNotification('Escala carregada com sucesso!', 'success');
     }
 
@@ -340,14 +363,16 @@
       return start1 <= end2 && end1 >= start2;
     }
 
+    // Procurar entrada da escala por data ISO
+    function findEscalaByISO(iso) {
+      const [y,m,d] = iso.split('-');
+      const display = `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
+      return escalaReal.find(r => r.dia === display);
+    }
+
     // Escala: obter turno do dia por operador com base no JSON carregado
     function getTurnoDoDiaPorOperador(dateStr, operatorId) {
-      // dateStr: 'YYYY-MM-DD'
-      const [ano, mes, dia] = dateStr.split('-').map(n => parseInt(n, 10));
-      const reg = escalaReal.find(r =>
-        r.ano === ano && r.mes === mes &&
-        r.dia === `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`
-      );
+      const reg = findEscalaByISO(dateStr);
       if (!reg) return null;
       for (const [k, val] of Object.entries(reg.turnos)) {
         if (val === operatorId) return k; // "23h-07h", "07h-15h", "15h-23h", "Folga", "Férias", etc.
@@ -368,23 +393,39 @@
       return count;
     }
 
+    // Listar turnos num período para mostrar na tabela
+    function listTurnsInPeriod(operatorId, startDate, endDate) {
+      if (!escalaReal || escalaReal.length === 0) return '—';
+      const counts = { '23h-07h': 0, '07h-15h': 0, '15h-23h': 0, 'Folga': 0, 'Férias': 0, 'Formação': 0, 'Outro': 0 };
+      const s = new Date(startDate), e = new Date(endDate);
+      for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
+        const ds = d.toISOString().split('T')[0];
+        let turno = getTurnoDoDiaPorOperador(ds, operatorId);
+        if (!turno) continue;
+        const lower = turno.toLowerCase();
+        if (turno.includes('7h-15h')) turno = '07h-15h';
+        if (lower.startsWith('folga')) turno = 'Folga';
+        else if (lower.startsWith('férias')) turno = 'Férias';
+        else if (lower.startsWith('formação')) turno = 'Formação';
+        else if (!['23h-07h','07h-15h','15h-23h'].includes(turno)) turno = 'Outro';
+        counts[turno] = (counts[turno] || 0) + 1;
+      }
+      const parts = Object.entries(counts).filter(([,n])=>n>0).map(([t,n])=>`${t}: ${n}`);
+      return parts.length ? parts.join(' | ') : '—';
+    }
+
     // Validação da cobertura mínima por turno no período
     function validaCoberturaMinima(startDate, endDate) {
       const start = new Date(startDate), end = new Date(endDate);
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const ds = d.toISOString().split('T')[0];
-        const [ano, mes, dia] = ds.split('-').map(n => parseInt(n, 10));
-        const reg = escalaReal.find(r =>
-          r.ano === ano && r.mes === mes &&
-          r.dia === `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${ano}`
-        );
+        const reg = findEscalaByISO(d.toISOString().split('T')[0]);
         if (!reg) continue;
 
         // Presenças por turno (exclui Folga/Férias/Formação)
         const presentes = { "23h-07h": 0, "07h-15h": 0, "15h-23h": 0 };
         Object.entries(reg.turnos).forEach(([turno, opId]) => {
           if (!opId) return;
-          const tnorm = turno.replace('_sobreposicao', '');
+          const tnorm = turno.replace('_sobreposicao', '').replace('7h-15h','07h-15h');
           const lower = turno.toLowerCase();
           const isAusencia = lower.startsWith('folga') || lower.startsWith('férias') || lower.startsWith('formação');
           if (tnorm in presentes && !isAusencia) presentes[tnorm]++;
@@ -455,7 +496,7 @@
       if (vacationsWithConflicts.length === 0) {
         tbody.innerHTML = `
           <tr>
-            <td colspan="9" class="empty-state">
+            <td colspan="10" class="empty-state">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
@@ -468,16 +509,19 @@
         tbody.innerHTML = vacationsWithConflicts.map((vacation, index) => {
           const totalDays = calculateDays(vacation.startDate, vacation.endDate);
           const statusClass = vacation.hasConflict ? 'conflict' : vacation.status.toLowerCase();
-          const statusIcon = vacation.hasConflict ? '⚠️' : (vacation.status === 'Pendente' ? '⏳' : '✓');
+          const statusIcon = vacation.hasConflict ? '⚠️' : (vacation.status === 'Pendente' ? '⏳' : (vacation.status === 'Rejeitado' ? '✖️' : '✓'));
           const statusText = vacation.hasConflict 
             ? `CONFLITO com ${vacation.conflictsWith.join(', ')}`
             : vacation.status;
+
+          const turnosPeriodo = listTurnsInPeriod(vacation.id, vacation.startDate, vacation.endDate);
 
           return `
             <tr class="${vacation.hasConflict ? 'conflict' : ''}">
               <td><strong>${vacation.name}</strong></td>
               <td>${vacation.id}</td>
               <td>${formatDate(vacation.startDate)} a ${formatDate(vacation.endDate)}</td>
+              <td>${turnosPeriodo}</td>
               <td>${totalDays} dias</td>
               <td>${vacation.daysOff} dias</td>
               <td>${vacation.holidays} dia(s)</td>
@@ -489,7 +533,10 @@
               </td>
               <td><span class="status ${statusClass}">${statusIcon} ${statusText}</span></td>
               <td>
-                ${vacation.status === 'Pendente' ? `<button class="btn-approve" onclick="approveVacation(${index})">✓ Aprovar</button>` : ''}
+                ${vacation.status === 'Pendente' ? `
+                  <button class="btn-approve" onclick="approveVacation(${index})">✓ Aprovar</button>
+                  <button class="btn-reject" onclick="rejectVacation(${index})">✖️ Rejeitar</button>
+                ` : ''}
                 <button class="btn-delete" onclick="deleteVacation(${index})">🗑️ Remover</button>
               </td>
             </tr>
@@ -523,6 +570,13 @@
       vacations[index].status = 'Aprovado';
       renderTable();
       showNotification('Pedido aprovado com sucesso!', 'success');
+    }
+
+    function rejectVacation(index) {
+      if (!confirm('Tem certeza que deseja rejeitar este pedido de férias?')) return;
+      vacations[index].status = 'Rejeitado';
+      renderTable();
+      showNotification('Pedido rejeitado.', 'warning');
     }
 
     document.getElementById('vacationForm').addEventListener('submit', function(e) {
@@ -571,4 +625,3 @@
   </script>
 </body>
 </html>
-
