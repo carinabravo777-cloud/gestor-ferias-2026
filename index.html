@@ -187,7 +187,7 @@
   </div>
   
   <script>
-    // Operadores e mapa nome->ID para normalizar nomes na escala
+    // Operadores e mapa nome->ID
     const operators = {
       1: { name: 'Elisabete Freixo', totalDays: 22, usedDays: 0 },
       2: { name: 'Patrícia Dobrões', totalDays: 22, usedDays: 12 },
@@ -198,11 +198,11 @@
     };
     const nameToId = Object.fromEntries(Object.entries(operators).map(([id, o]) => [o.name.toLowerCase(), parseInt(id,10)]));
 
-    // Escala real
+    // Escala
     let escalaReal = [];
     const turnosMinimos = { "23h-07h": 1, "15h-23h": 1, "07h-15h": 2 };
 
-    // Feriados 2026
+    // Feriados (exemplo 2026; ajusta conforme)
     const holidays2026 = ['2026-01-01','2026-02-17','2026-04-03','2026-04-05','2026-05-01','2026-06-04','2026-06-10','2026-08-15','2026-10-05','2026-11-01','2026-12-01','2026-12-08','2026-12-25'];
     
     // Pedidos
@@ -214,52 +214,54 @@
     function exportData(){ const data = { vacations, operators, exportDate: new Date().toISOString() }; const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`ferias-${new Date().toISOString().split('T')[0]}.json`; a.click(); showNotification('Dados exportados com sucesso!','success'); }
     function importData(event){ const file=event.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=e=>{ try{ const data=JSON.parse(e.target.result); vacations=data.vacations||[]; Object.assign(operators, data.operators||{}); saveData(); renderTable(); showNotification('Pedidos importados com sucesso!','success'); }catch{ showNotification('Erro ao importar dados!','error'); } }; reader.readAsText(file); }
 
-    // Importar Escala com normalização robusta
+    // Importar Escala
     function importEscalaFromFile(event){ const file=event.target.files[0]; if(!file) return; const reader=new FileReader(); reader.onload=e=>{ try{ importEscalaReal(JSON.parse(e.target.result)); }catch{ showNotification('Erro ao importar a escala!','error'); } }; reader.readAsText(file); }
     function importEscalaReal(jsonObj){
       const arr = Array.isArray(jsonObj) ? jsonObj : (Array.isArray(jsonObj.escala) ? jsonObj.escala : []);
       if (!arr.length){ showNotification('Ficheiro de escala vazio ou formato inválido.','error'); return; }
-      escalaReal = arr.map(entry => normalizeEscalaEntry(entry));
+      escalaReal = arr.map(entry => {
+        const e = JSON.parse(JSON.stringify(entry));
+        // Data -> DD/MM/YYYY
+        if (typeof e.dia === 'string'){
+          if (e.dia.includes('/')) {
+            // já está em DD/MM/YYYY
+          } else if (e.dia.includes('-')) {
+            const [y,m,d] = e.dia.split('-');
+            e.dia = `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
+          }
+        } else if (e.ano && e.mes && (e.dia_num || e.dia || e.d)) {
+          const dnum = String(e.dia_num || e.dia || e.d).padStart(2,'0');
+          const mnum = String(e.mes).padStart(2,'0');
+          const yn = String(e.ano);
+          e.dia = `${dnum}/${mnum}/${yn}`;
+        }
+
+        // Normalizar chaves dos turnos e valores
+        const normTurnos = {};
+        Object.entries(e.turnos || {}).forEach(([k,v])=>{
+          const kNorm = normalizeTurnoKey(k);
+          const vNorm = normalizeTurnoValue(v);
+          normTurnos[kNorm] = vNorm;
+        });
+        e.turnos = normTurnos;
+        return e;
+      });
       showNotification('Escala carregada com sucesso!','success');
+      renderTable(); // atualizar coluna após importação
     }
 
-    // Normalização da escala
-    function normalizeEscalaEntry(entry){
-      const e = JSON.parse(JSON.stringify(entry));
-      // normalizar data: produzir e.dia sempre em "DD/MM/YYYY"
-      e.dia = normalizeDia(e);
-      // normalizar chaves dos turnos e valores (IDs ou nomes)
-      const normTurnos = {};
-      Object.entries(e.turnos || {}).forEach(([k,v])=>{
-        let kNorm = normalizeTurnoKey(k);
-        let vNorm = normalizeTurnoValue(v);
-        normTurnos[kNorm] = vNorm;
-      });
-      e.turnos = normTurnos;
-      return e;
-    }
-    function normalizeDia(e){
-      // casos: e.dia "DD/MM/YYYY" | "YYYY-MM-DD" | atributos ano/mes/dia separadas
-      if (typeof e.dia === 'string'){
-        if (e.dia.includes('/')) return e.dia;
-        if (e.dia.includes('-')) { const [y,m,d] = e.dia.split('-'); return `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`; }
-      }
-      if (e.ano && e.mes && (e.dia_num || e.dia || e.d)){ // algumas escalas usam dia_num ou d
-        const dnum = String(e.dia_num || e.dia || e.d).padStart(2,'0');
-        const mnum = String(e.mes).padStart(2,'0');
-        const yn = String(e.ano);
-        return `${dnum}/${mnum}/${yn}`;
-      }
-      return e.dia || ''; // fallback
-    }
+    // Normalização
     function normalizeTurnoKey(k){
-      let s = String(k).trim();
-      s = s.replace(/\s+/g,''); // remove espaços
-      // unificar manhã
-      if (s === '7h-15h' || s === '07h-15h' || s.startsWith('07h-15h') || s.startsWith('7h-15h')) {
+      let s = String(k).trim().replace(/\s+/g,'');
+      // Manhã
+      if (s === '7h-15h' || s === '07h-15h' || s.startsWith('7h-15h') || s.startsWith('07h-15h')) {
         s = '07h-15h';
       }
-      // remover qualquer sufixo após underline
+      // Ausências com sufixos
+      if (s.toLowerCase().startsWith('folga')) s = 'Folga';
+      else if (s.toLowerCase().startsWith('férias') || s.toLowerCase().startsWith('ferias')) s = 'Férias';
+      else if (s.toLowerCase().startsWith('formação') || s.toLowerCase().startsWith('formacao')) s = 'Formação';
+      // remover sufixos underline
       s = s.replace('_sobreposicao','').replace(/_.*$/, '');
       return s;
     }
@@ -267,16 +269,13 @@
       if (v === null || v === undefined) return null;
       if (typeof v === 'number') return v;
       if (typeof v === 'string'){
-        const t = v.trim();
-        // mapear nomes para ID
-        const idByName = nameToId[t.toLowerCase()];
+        const t = v.trim(); const lower = t.toLowerCase();
+        if (['folga','férias','ferias','formação','formacao'].some(x => lower.startsWith(x))) return t;
+        const idByName = nameToId[lower];
         if (idByName) return idByName;
-        // extrair ID em padrões "ID: 3"
-        const m = t.toLowerCase().match(/id[:\s-]*([0-9]+)/);
+        const m = lower.match(/id[:\s-]*([0-9]+)/);
         if (m) return parseInt(m[1],10);
-        // manter strings de ausência (Folga, Férias, Formação) como estão
-        if (['folga','férias','ferias','formação','formacao'].some(x => t.toLowerCase().startsWith(x))) return t;
-        return t; // desconhecido: manter (pode ser outro rótulo de turno)
+        return t;
       }
       return null;
     }
@@ -284,13 +283,13 @@
     // Notificações
     function showNotification(message, type='success'){ const el=document.createElement('div'); el.className=`notification ${type}`; el.textContent=message; document.body.appendChild(el); setTimeout(()=>el.remove(),3000); }
 
-    // Helpers de data
+    // Helpers
     function formatDate(dateString){ const date=new Date(dateString); return date.toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'}); }
     function calculateDays(start,end){ const s=new Date(start), e=new Date(end); const diff=Math.abs(e-s); return Math.ceil(diff/(1000*60*60*24))+1; }
     function countHolidaysInPeriod(startDate,endDate){ let c=0; const s=new Date(startDate), e=new Date(endDate); holidays2026.forEach(h=>{ const hd=new Date(h); if (hd>=s && hd<=e) c++; }); return c; }
     function checkOverlap(start1,end1,start2,end2){ return start1 <= end2 && end1 >= start2; }
 
-    // Procurar entrada da escala por ISO "YYYY-MM-DD"
+    // Escala: procurar por ISO
     function findEscalaByISO(iso){
       const [y,m,d] = iso.split('-');
       const display = `${d.padStart(2,'0')}/${m.padStart(2,'0')}/${y}`;
@@ -298,14 +297,13 @@
     }
 
     // Obter turno do dia por operador
-    function getTurnoDoDiaPorOperador(dateStr, operatorId){
-      const reg = findEscalaByISO(dateStr);
+    function getTurnoDoDiaPorOperador(dateISO, operatorId){
+      const reg = findEscalaByISO(dateISO);
       if (!reg || !reg.turnos) return null;
-      for (const [turnoKey, val] of Object.entries(reg.turnos)){
-        // val pode ser ID (número) ou string nome/ausência
-        let idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
+      for (const [rawKey, val] of Object.entries(reg.turnos)){
+        const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
         if (idMatch === operatorId){
-          return normalizeTurnoKey(turnoKey);
+          return normalizeTurnoKey(rawKey);
         }
       }
       return null;
@@ -334,7 +332,6 @@
         const iso = d.toISOString().split('T')[0];
         let turno = getTurnoDoDiaPorOperador(iso, operatorId);
         if (!turno) continue;
-        turno = normalizeTurnoKey(turno);
         const lower = turno.toLowerCase();
         if (lower.startsWith('folga')) turno = 'Folga';
         else if (lower.startsWith('férias') || lower.startsWith('ferias')) turno = 'Férias';
@@ -353,10 +350,9 @@
         const reg = findEscalaByISO(d.toISOString().split('T')[0]);
         if (!reg || !reg.turnos) continue;
         const presentes = { "23h-07h": 0, "07h-15h": 0, "15h-23h": 0 };
-        Object.entries(reg.turnos).forEach(([turnoKey, val])=>{
-          const tnorm = normalizeTurnoKey(turnoKey);
-          const lowerVal = String(val).toLowerCase();
-          const isAusencia = lowerVal.startsWith('folga') || lowerVal.startsWith('férias') || lowerVal.startsWith('ferias') || lowerVal.startsWith('formação') || lowerVal.startsWith('formacao');
+        Object.entries(reg.turnos).forEach(([rawKey, val])=>{
+          const tnorm = normalizeTurnoKey(rawKey);
+          const isAusencia = typeof val === 'string' && ['folga','férias','ferias','formação','formacao'].some(x => String(val).toLowerCase().startsWith(x));
           if (tnorm in presentes && !isAusencia && val){ presentes[tnorm]++; }
         });
         for (const t of Object.keys(turnosMinimos)){
@@ -480,19 +476,24 @@
       const endDate = document.getElementById('endDate').value;
       if (!operatorId){ showNotification('Selecione um operador.','error'); return; }
       if (new Date(startDate) > new Date(endDate)){ showNotification('A data de início não pode ser posterior à data de fim!','error'); return; }
+
       const totalDays = calculateDays(startDate, endDate);
       const daysOff = (escalaReal && escalaReal.length>0) ? countFolgasReais(operatorId, startDate, endDate) : 0;
       const holidays = countHolidaysInPeriod(startDate, endDate);
       const realDays = totalDays - daysOff - holidays;
+
       const operator = operators[operatorId];
       const remaining = operator.totalDays - operator.usedDays;
       if (realDays > remaining){ showNotification(`${operator.name} não tem dias suficientes! Necessários: ${realDays} | Disponíveis: ${remaining}`,'error'); return; }
+
       vacations.push({ id: operatorId, name: operator.name, startDate, endDate, daysOff, holidays, realDays, status:'Pendente' });
       operator.usedDays += realDays;
       renderTable(); showNotification('Pedido adicionado com sucesso!','success');
+
       this.reset(); document.getElementById('operatorSelect').focus();
     });
 
+    // Inicialização
     loadData(); renderTable();
   </script>
 </body>
