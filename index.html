@@ -235,7 +235,7 @@
           e.dia = `${dnum}/${mnum}/${yn}`;
         }
 
-        // Mantém chaves dos turnos tal como vêm (sem normalizar a manhã)
+        // Mantém chaves dos turnos tal como vêm
         const keepTurnos = {};
         Object.entries(e.turnos || {}).forEach(([k,v])=>{
           keepTurnos[String(k).trim()] = normalizeTurnoValue(v);
@@ -247,7 +247,7 @@
       renderTable();
     }
 
-    // Normalização apenas de valores (não das chaves da manhã)
+    // Normalização apenas de valores
     function normalizeTurnoValue(v){
       if (v === null || v === undefined) return null;
       if (typeof v === 'number') return v;
@@ -283,13 +283,16 @@
       return ['07h-15h','7h-15h','7h-15h_sobreposicao','07h-15h_sobreposicao','7h-15h_','07h-15h_'];
     }
 
-    // —————————————— FUNÇÕES (Folga, Folga1, Folga2) ——————————————
+    // —————————————— FUNÇÕES DE FOLGAS (Folga/Folga1/Folga2) ——————————————
+
+    // Normaliza chave para comparar (remove espaços e baixa para minúsculas)
+    function normalizeKey(k){ return String(k).toLowerCase().replace(/\s+/g,'').trim(); }
 
     // Ausência (Folga/Férias/Formação) para o operador
     function isAbsenceForOperator(turnos, operatorId){
       for (const [rawKey, val] of Object.entries(turnos)){
-        const lowerKey = String(rawKey).toLowerCase().trim();
-        const isAbsKey = lowerKey.startsWith('folga') || lowerKey.startsWith('férias') || lowerKey.startsWith('ferias') || lowerKey.startsWith('formação') || lowerKey.startsWith('formacao');
+        const key = normalizeKey(rawKey);
+        const isAbsKey = key.startsWith('folga') || key.startsWith('férias') || key.startsWith('ferias') || key.startsWith('formação') || key.startsWith('formacao');
         if (!isAbsKey) continue;
         const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
         if (idMatch === operatorId) return true;
@@ -297,17 +300,17 @@
       return false;
     }
 
-    // Contar folgas por período: APENAS Folga, Folga1, Folga2
+    // Contar folgas: Folga, Folga1, Folga2 (aceita "Folga 1" etc.)
     function countFolgasReais(operatorId, startDate, endDate){
       let count = 0;
       const s = new Date(startDate), e = new Date(endDate);
-      const folgaKeys = ['folga','folga1','folga2'];
+      const folgaKeys = new Set(['folga','folga1','folga2']); // normalizadas
       for (let d = new Date(s); d <= e; d.setDate(d.getDate()+1)){
         const reg = findEscalaByISO(d.toISOString().split('T')[0]);
         if (!reg || !reg.turnos) continue;
         for (const [rawKey, val] of Object.entries(reg.turnos)){
-          const lowerKey = String(rawKey).toLowerCase().trim();
-          if (!folgaKeys.includes(lowerKey)) continue;
+          const key = normalizeKey(rawKey);
+          if (!folgaKeys.has(key)) continue;
           const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
           if (idMatch === operatorId) { count++; break; } // 1 folga por dia
         }
@@ -325,7 +328,7 @@
         if (!reg || !reg.turnos) continue;
         const t = reg.turnos;
 
-        // Ignorar se é ausência
+        // Ignorar se há ausência para o operador
         if (isAbsenceForOperator(t, operatorId)) continue;
 
         // Manhã
@@ -357,7 +360,7 @@
       return parts.length ? parts.join(' | ') : '—';
     }
 
-    // Validação cobertura mínima (presenças nos turnos)
+    // Validação cobertura mínima (presenças nos turnos; ausências textuais não contam)
     function validaCoberturaMinima(startDate, endDate){
       const s = new Date(startDate), e = new Date(endDate);
       for (let d = new Date(s); d <= e; d.setDate(d.getDate()+1)){
@@ -374,7 +377,7 @@
         const valTarde = reg.turnos['15h-23h'];
         if (valTarde !== null && valTarde !== undefined && typeof valTarde !== 'string') presentes['15h-23h']++;
 
-        // Manhã: soma variantes, ignorando strings (ausências textuais)
+        // Manhã: soma variantes existentes, ignorando strings (que seriam ausências nomeadas)
         for (const key of getMorningVariants()){
           const v = reg.turnos[key];
           if (v !== null && v !== undefined && typeof v !== 'string') presentes['07h-15h']++;
