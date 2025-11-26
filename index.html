@@ -62,7 +62,7 @@
     .status.conflict { background: #f8d7da; color: #721c24; }
     .status.pendente { background: #fff3cd; color: #856404; }
     .status.aprovado { background: #d4edda; color: #155724; }
-    .status.rejeitado { background: #e2e3e5; color: #383d41; }
+    .status.rejeitado { background: #dfcf5f; color: #383d41; }
     .btn-delete { background: #dc3545; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; transition: all 0.3s; }
     .btn-delete:hover { background: #c82333; transform: scale(1.05); }
     .btn-approve { background: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 5px; transition: all 0.3s; }
@@ -591,10 +591,10 @@
               <td><span class="status ${statusClass}">${statusIcon} ${statusText}</span></td>
               <td>
                 ${v.status==='Pendente' ? `
-                  <button class="btn-approve" onclick="approveVacation(${idx})">✓ Aprovar</button>
-                  <button class="btn-reject" onclick="rejectVacation(${idx})">✖️ Rejeitar</button>
+                  <button class="btn-approve" onclick="approveVacation(${idx})">✓</button>
+                  <button class="btn-reject" onclick="rejectVacation(${idx})">✖️</button>
                 ` : ''}
-                <button class="btn-delete" onclick="deleteVacation(${idx})">🗑️ Remover</button>
+                <button class="btn-delete" onclick="deleteVacation(${idx})">🗑️</button>
               </td>
             </tr>`;
         }).join('');
