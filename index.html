@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+!DOCTYPE html>
 <html lang="pt">
 <head>
   <meta charset="UTF-8">
@@ -235,41 +235,24 @@
           e.dia = `${dnum}/${mnum}/${yn}`;
         }
 
-        // Normalizar chaves dos turnos e valores
-        const normTurnos = {};
+        // Mantém chaves dos turnos tal como vêm (sem normalizar a manhã)
+        const keepTurnos = {};
         Object.entries(e.turnos || {}).forEach(([k,v])=>{
-          const kNorm = normalizeTurnoKey(k);
-          const vNorm = normalizeTurnoValue(v);
-          normTurnos[kNorm] = vNorm;
+          keepTurnos[String(k).trim()] = normalizeTurnoValue(v);
         });
-        e.turnos = normTurnos;
+        e.turnos = keepTurnos;
         return e;
       });
       showNotification('Escala carregada com sucesso!','success');
       renderTable();
     }
 
-    // Normalização
-    function normalizeTurnoKey(k){
-      let s = String(k).trim().replace(/\s+/g,'');
-      // Manhã (inclui sobreposição)
-      if (s === '7h-15h' || s === '07h-15h' || s.startsWith('7h-15h') || s.startsWith('07h-15h')) {
-        s = '07h-15h';
-      }
-      // Ausências com sufixos
-      if (s.toLowerCase().startsWith('folga')) s = 'Folga';
-      else if (s.toLowerCase().startsWith('férias') || s.toLowerCase().startsWith('ferias')) s = 'Férias';
-      else if (s.toLowerCase().startsWith('formação') || s.toLowerCase().startsWith('formacao')) s = 'Formação';
-      // remover sufixos underline
-      s = s.replace('_sobreposicao','').replace(/_.*$/, '');
-      return s;
-    }
+    // Normalização apenas de valores (não das chaves da manhã)
     function normalizeTurnoValue(v){
       if (v === null || v === undefined) return null;
       if (typeof v === 'number') return v;
       if (typeof v === 'string'){
         const t = v.trim(); const lower = t.toLowerCase();
-        if (['folga','férias','ferias','formação','formacao'].some(x => lower.startsWith(x))) return t;
         const idByName = nameToId[lower];
         if (idByName) return idByName;
         const m = lower.match(/id[:\s-]*([0-9]+)/);
@@ -295,16 +278,40 @@
       return escalaReal.find(r => r.dia === display);
     }
 
-    // Obter turno do dia por operador (inclui sobreposição da manhã)
+    // Variantes do turno da manhã e utilitário de soma
+    function getMorningVariants() {
+      return ['07h-15h','7h-15h','7h-15h_sobreposicao','07h-15h_sobreposicao','7h-15h_','07h-15h_'];
+    }
+    function sumMorningCount(turnos) {
+      let sum = 0;
+      for (const key of getMorningVariants()) {
+        const v = turnos[key];
+        // conta presença se existir um valor que não seja ausência
+        if (v !== null && v !== undefined) {
+          const isAus = isAbsence(v);
+          if (!isAus) sum++;
+        }
+      }
+      return sum;
+    }
+    function isAbsence(val){
+      if (val === null || val === undefined) return false;
+      if (typeof val === 'string'){
+        const lower = val.toLowerCase();
+        return lower.startsWith('folga') || lower.startsWith('férias') || lower.startsWith('ferias') || lower.startsWith('formação') || lower.startsWith('formacao');
+      }
+      return false;
+    }
+
+    // Obter turno do dia por operador (somando variantes da manhã)
     function getTurnoDoDiaPorOperador(dateISO, operatorId){
       const reg = findEscalaByISO(dateISO);
       if (!reg || !reg.turnos) return null;
 
       const t = reg.turnos;
 
-      // Verificar explicitamente variantes da manhã sem depender da normalização
-      const manhaCandidates = ['07h-15h', '7h-15h_sobreposicao', '07h-15h_', '7h-15h'];
-      for (const key of manhaCandidates){
+      // Manhã: qualquer variante que corresponda ao operatorId conta como 07h-15h
+      for (const key of getMorningVariants()){
         if (key in t){
           const val = t[key];
           const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
@@ -314,11 +321,18 @@
         }
       }
 
-      // Restantes
+      // Restantes turnos
       for (const [rawKey, val] of Object.entries(t)){
         const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
         if (idMatch === operatorId){
-          return normalizeTurnoKey(rawKey);
+          // devolve chave original (sem normalizar nomes), mas mapeamos para etiquetas conhecidas
+          const k = rawKey.replace(/\s+/g,'');
+          if (k === '23h-07h') return '23h-07h';
+          if (k === '15h-23h') return '15h-23h';
+          if (k.toLowerCase().startsWith('folga')) return 'Folga';
+          if (k.toLowerCase().startsWith('férias') || k.toLowerCase().startsWith('ferias')) return 'Férias';
+          if (k.toLowerCase().startsWith('formação') || k.toLowerCase().startsWith('formacao')) return 'Formação';
+          return k;
         }
       }
       return null;
@@ -338,39 +352,75 @@
       return count;
     }
 
-    // Listar turnos do período
+    // Listar turnos do período (manhã soma variantes)
     function listTurnsInPeriod(operatorId, startDate, endDate){
       if (!escalaReal || escalaReal.length === 0) return '—';
       const counts = { '23h-07h': 0, '07h-15h': 0, '15h-23h': 0, 'Folga': 0, 'Férias': 0, 'Formação': 0, 'Outro': 0 };
       const s = new Date(startDate), e = new Date(endDate);
       for (let d = new Date(s); d <= e; d.setDate(d.getDate()+1)){
         const iso = d.toISOString().split('T')[0];
-        let turno = getTurnoDoDiaPorOperador(iso, operatorId);
-        if (!turno) continue;
-        const lower = turno.toLowerCase();
-        if (lower.startsWith('folga')) turno = 'Folga';
-        else if (lower.startsWith('férias') || lower.startsWith('ferias')) turno = 'Férias';
-        else if (lower.startsWith('formação') || lower.startsWith('formacao')) turno = 'Formação';
-        else if (turno === '7h-15h' || turno === '07h-15h') turno = '07h-15h';
-        else if (!['23h-07h','07h-15h','15h-23h'].includes(turno)) turno = 'Outro';
-        counts[turno] = (counts[turno] || 0) + 1;
+        const reg = findEscalaByISO(iso);
+        if (!reg || !reg.turnos) continue;
+
+        const t = reg.turnos;
+
+        // 23h-07h e 15h-23h: se o operador está nesses turnos nesse dia, soma 1
+        const nightVal = t['23h-07h'];
+        if (nightVal !== null && nightVal !== undefined){
+          const idMatch = (typeof nightVal === 'number') ? nightVal : nameToId[String(nightVal).toLowerCase()];
+          if (idMatch === operatorId) counts['23h-07h']++;
+        }
+        const tardeVal = t['15h-23h'];
+        if (tardeVal !== null && tardeVal !== undefined){
+          const idMatch = (typeof tardeVal === 'number') ? tardeVal : nameToId[String(tardeVal).toLowerCase()];
+          if (idMatch === operatorId) counts['15h-23h']++;
+        }
+
+        // Manhã: pode haver múltiplas variantes no mesmo dia; se o operador aparece em alguma, conta 1 para esse dia
+        let manhaDoOperador = false;
+        for (const key of getMorningVariants()){
+          if (key in t){
+            const val = t[key];
+            const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
+            if (idMatch === operatorId) { manhaDoOperador = true; break; }
+          }
+        }
+        if (manhaDoOperador) counts['07h-15h']++;
+
+        // Ausências (Folga/Férias/Formação): se o operador está marcado numa destas etiquetas, incrementa correspondente
+        for (const [rawKey, val] of Object.entries(t)){
+          const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
+          if (idMatch !== operatorId) continue;
+          const lowerKey = rawKey.toLowerCase();
+          if (lowerKey.startsWith('folga')) counts['Folga']++;
+          else if (lowerKey.startsWith('férias') || lowerKey.startsWith('ferias')) counts['Férias']++;
+          else if (lowerKey.startsWith('formação') || lowerKey.startsWith('formacao')) counts['Formação']++;
+        }
       }
       const parts = Object.entries(counts).filter(([,n])=>n>0).map(([t,n])=>`${t}: ${n}`);
       return parts.length ? parts.join(' | ') : '—';
     }
 
-    // Validação cobertura mínima (ignora ausências)
+    // Validação cobertura mínima (manhã soma variantes)
     function validaCoberturaMinima(startDate, endDate){
       const s = new Date(startDate), e = new Date(endDate);
       for (let d = new Date(s); d <= e; d.setDate(d.getDate()+1)){
         const reg = findEscalaByISO(d.toISOString().split('T')[0]);
         if (!reg || !reg.turnos) continue;
+
         const presentes = { "23h-07h": 0, "07h-15h": 0, "15h-23h": 0 };
-        Object.entries(reg.turnos).forEach(([rawKey, val])=>{
-          const tnorm = normalizeTurnoKey(rawKey);
-          const isAusencia = typeof val === 'string' && ['folga','férias','ferias','formação','formacao'].some(x => String(val).toLowerCase().startsWith(x));
-          if (tnorm in presentes && !isAusencia && val){ presentes[tnorm]++; }
-        });
+
+        // Noite
+        const valNoite = reg.turnos['23h-07h'];
+        if (valNoite !== null && valNoite !== undefined && !isAbsence(valNoite)) presentes['23h-07h']++;
+
+        // Tarde
+        const valTarde = reg.turnos['15h-23h'];
+        if (valTarde !== null && valTarde !== undefined && !isAbsence(valTarde)) presentes['15h-23h']++;
+
+        // Manhã: soma todas as variantes existentes não-ausência
+        presentes['07h-15h'] += sumMorningCount(reg.turnos);
+
         for (const t of Object.keys(turnosMinimos)){
           if (presentes[t] < turnosMinimos[t]){
             return { ok:false, dia: reg.dia, turno:t, presentes: presentes[t], minimo: turnosMinimos[t] };
@@ -482,7 +532,6 @@
     }
 
     function deleteVacation(index){
-      // Mapear índice da lista ordenada para o array original
       const ordered = sortVacationsAsc(vacations);
       const vToRemove = ordered[index];
       const baseIndex = vacations.findIndex(v =>
