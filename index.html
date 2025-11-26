@@ -235,7 +235,7 @@
           e.dia = `${dnum}/${mnum}/${yn}`;
         }
 
-        // Mantém chaves dos turnos tal como vêm
+        // Mantém chaves tal como vêm
         const keepTurnos = {};
         Object.entries(e.turnos || {}).forEach(([k,v])=>{
           keepTurnos[String(k).trim()] = normalizeTurnoValue(v);
@@ -283,9 +283,9 @@
       return ['07h-15h','7h-15h','7h-15h_sobreposicao','07h-15h_sobreposicao','7h-15h_','07h-15h_'];
     }
 
-    // —————————————— FUNÇÕES DE FOLGAS (Folga/Folga1/Folga2) ——————————————
+    // —————————————— REGRAS DE FOLGAS ——————————————
 
-    // Normaliza chave para comparar (remove espaços e baixa para minúsculas)
+    // Normaliza chave: minúsculas + remove espaços
     function normalizeKey(k){ return String(k).toLowerCase().replace(/\s+/g,'').trim(); }
 
     // Ausência (Folga/Férias/Formação) para o operador
@@ -300,7 +300,7 @@
       return false;
     }
 
-    // Contar folgas: Folga, Folga1, Folga2 (aceita "Folga 1" etc.)
+    // Contar folgas: soma Folga, Folga1 e Folga2 (aceita "Folga 1" etc.)
     function countFolgasReais(operatorId, startDate, endDate){
       let count = 0;
       const s = new Date(startDate), e = new Date(endDate);
@@ -312,13 +312,13 @@
           const key = normalizeKey(rawKey);
           if (!folgaKeys.has(key)) continue;
           const idMatch = (typeof val === 'number') ? val : nameToId[String(val).toLowerCase()];
-          if (idMatch === operatorId) { count++; break; } // 1 folga por dia
+          if (idMatch === operatorId) { count++; break; } // uma folga por dia
         }
       }
       return count;
     }
 
-    // Listar apenas 23h-07h, 07h-15h (variantes), 15h-23h (exclui dias com ausência)
+    // Listar apenas 23h-07h, 07h-15h (variantes), 15h-23h, excluindo dias com ausência
     function listTurnsInPeriod(operatorId, startDate, endDate){
       if (!escalaReal || escalaReal.length === 0) return '—';
       const counts = { '23h-07h': 0, '07h-15h': 0, '15h-23h': 0 };
@@ -328,7 +328,7 @@
         if (!reg || !reg.turnos) continue;
         const t = reg.turnos;
 
-        // Ignorar se há ausência para o operador
+        // Ignora dias com qualquer ausência do operador
         if (isAbsenceForOperator(t, operatorId)) continue;
 
         // Manhã
@@ -343,16 +343,16 @@
         if (manha) counts['07h-15h']++;
 
         // Noite
-        const noiteVal = t['23h-07h'];
-        if (noiteVal !== null && noiteVal !== undefined){
-          const idMatch = (typeof noiteVal === 'number') ? noiteVal : nameToId[String(noiteVal).toLowerCase()];
+        const vNoite = t['23h-07h'];
+        if (vNoite !== null && vNoite !== undefined){
+          const idMatch = (typeof vNoite === 'number') ? vNoite : nameToId[String(vNoite).toLowerCase()];
           if (idMatch === operatorId) counts['23h-07h']++;
         }
 
         // Tarde
-        const tardeVal = t['15h-23h'];
-        if (tardeVal !== null && tardeVal !== undefined){
-          const idMatch = (typeof tardeVal === 'number') ? tardeVal : nameToId[String(tardeVal).toLowerCase()];
+        const vTarde = t['15h-23h'];
+        if (vTarde !== null && vTarde !== undefined){
+          const idMatch = (typeof vTarde === 'number') ? vTarde : nameToId[String(vTarde).toLowerCase()];
           if (idMatch === operatorId) counts['15h-23h']++;
         }
       }
@@ -360,7 +360,7 @@
       return parts.length ? parts.join(' | ') : '—';
     }
 
-    // Validação cobertura mínima (presenças nos turnos; ausências textuais não contam)
+    // Validação cobertura mínima
     function validaCoberturaMinima(startDate, endDate){
       const s = new Date(startDate), e = new Date(endDate);
       for (let d = new Date(s); d <= e; d.setDate(d.getDate()+1)){
@@ -369,15 +369,12 @@
 
         const presentes = { "23h-07h": 0, "07h-15h": 0, "15h-23h": 0 };
 
-        // Noite
         const valNoite = reg.turnos['23h-07h'];
         if (valNoite !== null && valNoite !== undefined && typeof valNoite !== 'string') presentes['23h-07h']++;
 
-        // Tarde
         const valTarde = reg.turnos['15h-23h'];
         if (valTarde !== null && valTarde !== undefined && typeof valTarde !== 'string') presentes['15h-23h']++;
 
-        // Manhã: soma variantes existentes, ignorando strings (que seriam ausências nomeadas)
         for (const key of getMorningVariants()){
           const v = reg.turnos[key];
           if (v !== null && v !== undefined && typeof v !== 'string') presentes['07h-15h']++;
