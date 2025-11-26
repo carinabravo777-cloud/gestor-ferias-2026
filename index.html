@@ -62,7 +62,7 @@
     .status.conflict { background: #f8d7da; color: #721c24; }
     .status.pendente { background: #fff3cd; color: #856404; }
     .status.aprovado { background: #d4edda; color: #155724; }
-    .status.rejeitado { background: #dfcf5f; color: #383d41; }
+    .status.rejeitado { background: #e2e3e5; color: #383d41; }
     .btn-delete { background: #dc3545; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; transition: all 0.3s; }
     .btn-delete:hover { background: #c82333; transform: scale(1.05); }
     .btn-approve { background: #28a745; color: white; padding: 6px 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 5px; transition: all 0.3s; }
@@ -262,10 +262,10 @@
             if (!dia) continue;
             const turnos = {};
 
-            // Mapear novos nomes
+            // Mapear NOVA escala (apenas 4 colunas)
             setIfPresent(turnos, '23h-07h', cols[idx['noite']]);             // Noite
             setIfPresent(turnos, '07h-15h', cols[idx['manha']]);              // Manha
-            setIfPresent(turnos, 'sobreposição', cols[idx['sobreposicao']]);  // Sobreposição (variante manhã)
+            setIfPresent(turnos, 'sobreposição', cols[idx['sobreposicao']]);  // Sobreposição
             setIfPresent(turnos, '15h-23h', cols[idx['tarde']]);              // Tarde
 
             // Folgas e ausências
@@ -374,16 +374,11 @@
       return escalaReal.find(r => r.dia === display);
     }
 
-    // Variantes do turno da manhã (inclui "sobreposição")
+    // Variantes do turno da manhã: apenas Manha (07h-15h) e Sobreposição
     function getMorningVariants() {
       return [
-        '07h-15h',
-        '7h-15h',
-        '7h-15h_',
-        '07h-15h_',
-        '7h-15h_sobreposicao',
-        '07h-15h_sobreposicao',
-        'sobreposição'
+        '07h-15h',     // vindo da coluna Manha
+        'sobreposição' // vindo da coluna Sobreposição
       ];
     }
 
@@ -436,7 +431,7 @@
       return count;
     }
 
-    // Listar apenas 23h-07h, 07h-15h (variantes), 15h-23h, excluindo dias com ausência
+    // Listar apenas 23h-07h, 07h-15h (Manha + Sobreposição), 15h-23h, excluindo dias com ausência
     function listTurnsInPeriod(operatorId, startDate, endDate){
       if (!escalaReal || escalaReal.length === 0) return '—';
       const counts = { '23h-07h': 0, '07h-15h': 0, '15h-23h': 0 };
@@ -447,7 +442,7 @@
         const t = reg.turnos;
         if (isAbsenceForOperator(t, operatorId)) continue;
 
-        // Manhã (qualquer variante conta uma vez)
+        // Manhã (qualquer das duas colunas conta uma vez)
         let manha = false;
         for (const key of getMorningVariants()){
           if (key in t && matchesOperator(t[key], operatorId)) { manha = true; break; }
@@ -479,6 +474,7 @@
         const vTarde = reg.turnos['15h-23h'];
         if (vTarde !== null && vTarde !== undefined && typeof vTarde !== 'string') presentes['15h-23h']++;
 
+        // Manhã: soma das duas colunas
         for (const key of getMorningVariants()){
           const v = reg.turnos[key];
           if (v !== null && v !== undefined && typeof v !== 'string') presentes['07h-15h']++;
@@ -591,10 +587,10 @@
               <td><span class="status ${statusClass}">${statusIcon} ${statusText}</span></td>
               <td>
                 ${v.status==='Pendente' ? `
-                  <button class="btn-approve" onclick="approveVacation(${idx})">✓</button>
-                  <button class="btn-reject" onclick="rejectVacation(${idx})">✖️</button>
+                  <button class="btn-approve" onclick="approveVacation(${idx})">✓ Aprovar</button>
+                  <button class="btn-reject" onclick="rejectVacation(${idx})">✖️ Rejeitar</button>
                 ` : ''}
-                <button class="btn-delete" onclick="deleteVacation(${idx})">🗑️</button>
+                <button class="btn-delete" onclick="deleteVacation(${idx})">🗑️ Remover</button>
               </td>
             </tr>`;
         }).join('');
